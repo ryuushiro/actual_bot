@@ -4,8 +4,17 @@ const fs = require('fs');
 const ACTUAL_SERVER_URL = process.env.ACTUAL_SERVER_URL;
 const ACTUAL_PASSWORD = process.env.ACTUAL_PASSWORD;
 
-// Map of Telegram ID -> Actual Budget ID
 const USER_BUDGETS = JSON.parse(process.env.USER_BUDGETS || '{}');
+
+const categoryMap = {
+  'Makanan & Minuman': 'Food & Drink',
+  'Belanja': 'Shopping',
+  'Transportasi': 'Transport',
+  'Kesehatan': 'Health',
+  'Hiburan': 'Entertainment',
+  'Tagihan': 'Bills',
+  'Lainnya': 'Other',
+};
 
 async function addTransaction(telegramId, { merchant, date, total, category_guess }) {
   const budgetId = USER_BUDGETS[telegramId];
@@ -25,8 +34,12 @@ async function addTransaction(telegramId, { merchant, date, total, category_gues
   const account = accounts[0];
 
   const categories = await actual.getCategories();
+
+  // Translate Bahasa category to English first
+  const englishCategory = categoryMap[category_guess] || category_guess;
+
   const category = categories.find(c =>
-    c.name.toLowerCase().includes(category_guess.toLowerCase())
+    c.name.toLowerCase().includes(englishCategory.toLowerCase())
   ) || categories[0];
 
   await actual.addTransactions(account.id, [
@@ -35,15 +48,11 @@ async function addTransaction(telegramId, { merchant, date, total, category_gues
       amount: -Math.abs(total * 100),
       payee_name: merchant,
       category: category?.id,
-      notes: `Added via Telegram bot`,
+      notes: `Ditambahkan via Telegram bot`,
     },
   ]);
 
   await actual.shutdown();
 }
 
-async function getBudgets() {
-  return USER_BUDGETS;
-}
-
-module.exports = { addTransaction, getBudgets };
+module.exports = { addTransaction };
