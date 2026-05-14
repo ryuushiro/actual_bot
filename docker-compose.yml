@@ -1,0 +1,18 @@
+services:
+  actual:
+    image: actualbudget/actual-server:latest
+    restart: unless-stopped
+    ports:
+      - "5006:5006"
+    volumes:
+      - ./actual-data:/data
+
+  bot:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - actual
+    env_file:
+      - .env
+    volumes:
+      - ./actual-data:/app/actual-data
