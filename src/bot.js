@@ -56,6 +56,79 @@ function categoryKeyboard() {
   );
 }
 
+// /start
+bot.start((ctx) => {
+  ctx.reply(
+    `👋 Halo ${ctx.from.first_name}!\n\n` +
+    `Aku akan membantumu mencatat pengeluaran ke Actual Budget.\n\n` +
+    `Ketik /help untuk melihat semua perintah yang tersedia.\n\n` +
+    `Telegram ID kamu: \`${ctx.from.id}\``,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+// /help
+bot.help((ctx) => {
+  ctx.reply(
+    `📖 *Daftar Perintah*\n\n` +
+    `📸 *Foto Struk*\n` +
+    `Kirim foto struk belanjamu dan aku akan memindainya otomatis.\n\n` +
+    `✏️ */tambah [jumlah] [toko] [kategori]*\n` +
+    `Tambah transaksi secara manual.\n` +
+    `Contoh: \`/tambah 27000 Indomaret Belanja\`\n\n` +
+    `📋 *Kategori yang tersedia:*\n` +
+    `Makanan & Minuman, Belanja, Transportasi, Kesehatan, Hiburan, Tagihan, Lainnya\n\n` +
+    `❓ */help*\n` +
+    `Tampilkan pesan ini.\n\n` +
+    `🆔 */id*\n` +
+    `Tampilkan Telegram ID kamu.`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+// /id
+bot.command('id', (ctx) => {
+  ctx.reply(`🆔 Telegram ID kamu: \`${ctx.from.id}\``, { parse_mode: 'Markdown' });
+});
+
+// /tambah
+bot.command('tambah', async (ctx) => {
+  const telegramId = ctx.from.id.toString();
+  const args = ctx.message.text.split(' ').slice(1);
+
+  if (args.length < 2) {
+    return ctx.reply(
+      `❌ Format salah. Gunakan:\n\`/tambah [jumlah] [toko] [kategori]\`\n\nContoh:\n\`/tambah 27000 Indomaret Belanja\``,
+      { parse_mode: 'Markdown' }
+    );
+  }
+
+  const jumlah = Number(args[0].replace(/[^0-9]/g, ''));
+  if (isNaN(jumlah) || jumlah <= 0) {
+    return ctx.reply('❌ Jumlah tidak valid. Masukkan angka saja.\nContoh: `/tambah 27000 Indomaret Belanja`', { parse_mode: 'Markdown' });
+  }
+
+  const toko = args[1];
+  const kategori = args.slice(2).join(' ') || 'Lainnya';
+  const today = new Date().toISOString().split('T')[0];
+
+  const transaction = {
+    merchant: toko,
+    date: today,
+    total: jumlah,
+    category_guess: kategori,
+    telegramId,
+  };
+
+  pendingTransactions[telegramId] = transaction;
+
+  await ctx.reply(formatConfirmMessage(transaction), {
+    parse_mode: 'Markdown',
+    ...confirmKeyboard(),
+  });
+});
+
+// Handle photo
 bot.on('photo', async (ctx) => {
   const telegramId = ctx.from.id.toString();
 
@@ -92,6 +165,7 @@ bot.on('photo', async (ctx) => {
   }
 });
 
+// Handle confirm
 bot.action('confirm', async (ctx) => {
   const telegramId = ctx.from.id.toString();
   const transaction = pendingTransactions[telegramId];
@@ -116,11 +190,13 @@ bot.action('confirm', async (ctx) => {
   }
 });
 
+// Handle edit
 bot.action('edit', async (ctx) => {
   await ctx.answerCbQuery();
   await ctx.reply('✏️ Apa yang ingin kamu ubah?', editKeyboard());
 });
 
+// Handle back
 bot.action('edit_back', async (ctx) => {
   const telegramId = ctx.from.id.toString();
   const transaction = pendingTransactions[telegramId];
@@ -213,15 +289,6 @@ bot.action('cancel', async (ctx) => {
   delete editState[telegramId];
   await ctx.answerCbQuery('Dibatalkan');
   await ctx.reply('❌ Transaksi dibatalkan.');
-});
-
-bot.start((ctx) => {
-  ctx.reply(
-    `👋 Halo ${ctx.from.first_name}!\n\n` +
-    `Kirimkan foto struk belanjamu dan aku akan otomatis menambahkannya ke Actual Budget.\n\n` +
-    `Telegram ID kamu: \`${ctx.from.id}\``,
-    { parse_mode: 'Markdown' }
-  );
 });
 
 bot.launch();
